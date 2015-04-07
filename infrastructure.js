@@ -40,6 +40,7 @@ var infrastructure =
         // console.log("migrated");
         PRIMARYTARGET = GREEN;
         SECONDARYTARGET = BLUE;
+        res.send("BLUE TO GREEN SWITCH DONE SUCCESSFULLY");
       }
     else
       {
@@ -56,8 +57,9 @@ var infrastructure =
         
         PRIMARYTARGET = BLUE;
         SECONDARYTARGET = GREEN;
+        res.send("GREEN TO BLUE SWITCH DONE SUCCESSFULLY");
       }
-    res.send("SLICE SWITCH FROM" + SECONDARYTARGET+ " to "+ PRIMARYTARGET+ " DONE SUCCESSFULLY");
+
     });
 
 
