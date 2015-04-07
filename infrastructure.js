@@ -2,11 +2,19 @@ var http      = require('http');
 var httpProxy = require('http-proxy');
 var exec = require('child_process').exec;
 var request = require("request");
+var express = require('express');
+var app = express()
+var GREEN = 'http://127.0.0.1:8003';
+var BLUE  = 'http://127.0.0.1:8002';
+var redis = require('redis');
+var greenclient = redis.createClient(6380, '127.0.0.1', {});
+var blueclient = redis.createClient(6379, '127.0.0.1', {});
 
-var GREEN = 'http://127.0.0.1:5060';
-var BLUE  = 'http://127.0.0.1:9090';
+var PRIMARYTARGET = BLUE;
+var SECONDARYTARGET = GREEN;
 
-var TARGET = GREEN;
+
+var flag = 1; //on flag = 1 (to mirror blue and green slice)
 
 var infrastructure =
 {
@@ -16,26 +24,62 @@ var infrastructure =
     var options = {};
     var proxy   = httpProxy.createProxyServer(options);
 
-    var server  = http.createServer(function(req, res)
-    {
-      proxy.web( req, res, {target: TARGET } );
+    app.get('/switch', function(req, res){ // switch between blue and green slices.
+    if(PRIMARYTARGET===BLUE) 
+      {
+            blueclient.lrange('images', 0, -1, function (error, items) { 
+            // get images from redis primary 
+            if (error) console.log("error");
+            else {
+               greenclient.del('images');
+               items.forEach(function (item) {
+                  greenclient.rpush("images",item);
+                })
+          }
+       }) 
+        // console.log("migrated");
+        PRIMARYTARGET = GREEN;
+        SECONDARYTARGET = BLUE;
+      }
+    else
+      {
+        
+        greenclient.lrange('images', 0, -1, function (error, items) {
+            if (error) console.log("error");
+            else {
+               blueclient.del('images');
+               items.forEach(function (item) {
+                  blueclient.rpush("images",item);
+              })
+            }
+          })
+        
+        PRIMARYTARGET = BLUE;
+        SECONDARYTARGET = GREEN;
+      }
+    res.send("SLICE SWITCH FROM" + SECONDARYTARGET+ " to "+ PRIMARYTARGET+ " DONE SUCCESSFULLY");
     });
-    server.listen(8080);
 
-    // Launch green slice
-    exec('forever start deploy/blue-www/main.js 9090');
+
+    app.all('/*', function(req, res, next) {
+       
+       proxy.web(req, res, { target: PRIMARYTARGET });
+       if(flag==1)
+        {
+            proxy.web(req, res, { target: SECONDARYTARGET }); 
+        }
+
+    });
+
+    app.listen(8001,'localhost');
+    // Launch blue slice
+    exec('forever start deploy/blue-www/main.js 8002');
     console.log("blue slice");
 
-    // Launch blue slice
-    exec('forever start deploy/green-www/main.js 5060');
+    // Launch green slice
+    exec('forever start deploy/green-www/main.js 8003');
     console.log("green slice");
 
-//setTimeout
-//var options = 
-//{
-//  url: "http://localhost:8080",
-//};
-//request(options, function (error, res, body) {
 
   },
 
@@ -56,4 +100,5 @@ process.on('exit', function(){infrastructure.teardown();} );
 process.on('SIGINT', function(){infrastructure.teardown();} );
 process.on('uncaughtException', function(err){
   console.log(err);
-  infrastructure.teardown();} );
+  // infrastructure.teardown();
+} );

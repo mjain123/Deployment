@@ -1,0 +1,5 @@
+#!/bin/sh
+
+GIT_WORK_TREE=C:/DevOps/Deployment/deploy/blue-www/ git checkout -f
+cd ../blue-www
+npm install
