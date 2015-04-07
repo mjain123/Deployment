@@ -62,12 +62,14 @@ var infrastructure =
 
 
     app.all('/*', function(req, res, next) {
-       
-       proxy.web(req, res, { target: PRIMARYTARGET });
        if(flag==1)
         {
-            proxy.web(req, res, { target: SECONDARYTARGET }); 
+          if(req.method=='get')
+            req.pipe(request.get(SECONDARYTARGET+req.url))
+          else if (req.method=='post')
+            req.pipe(request.post(SECONDARYTARGET+req.url))
         }
+       proxy.web(req, res, { target: PRIMARYTARGET });
 
     });
 
